@@ -1,11 +1,18 @@
-#Author-Amanda Ghassaei
-#Description-Turn your Fusion360 design history timeline into an animation
+# Author-Amanda Ghassaei
+# Description-Turn your Fusion360 design history timeline into an animation
 
-import adsk.core, adsk.fusion, traceback, math, os
+import traceback
+import math
+import os
 
-app = adsk.core.Application.get()
-if app:
-    ui  = app.userInterface
+import adsk
+from adsk import core, fusion
+
+app = core.Application.get()
+if not app:
+    raise RuntimeError('No Fusion application!')
+
+ui = app.userInterface
 
 # Global set of event handlers to keep them referenced for the duration of the command
 handlers = []
@@ -13,10 +20,12 @@ handlers = []
 # Keep the timelapse object in global namespace.
 timelapse = None
 
-class CommandExecuteHandler(adsk.core.CommandEventHandler):
+
+class CommandExecuteHandler(core.CommandEventHandler):
     def __init__(self):
         super().__init__()
-    def notify(self, args):
+
+    def notify(self, args: core.CommandCreatedEventArgs):
         try:
             unitsMgr = app.activeProduct.unitsManager
             command = args.firingEvent.sender
@@ -48,27 +57,31 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
             timelapse.collectFrames()
 
             args.isValidResult = True
-        except:
+        except Exception:
             if ui:
                 ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
 
-class CommandDestroyHandler(adsk.core.CommandEventHandler):
+
+class CommandDestroyHandler(core.CommandEventHandler):
+
     def __init__(self):
         super().__init__()
+
     def notify(self, args):
         try:
             # When the command is done, terminate the script.
             # This will release all globals which will remove all event handlers.
             adsk.terminate()
-        except:
+        except Exception:
             if ui:
                 ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
 
 
-class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
+class CommandCreatedHandler(core.CommandCreatedEventHandler):
     def __init__(self):
         super().__init__()
-    def notify(self, args):
+
+    def notify(self, args: core.CommandCreatedEventArgs):
         try:
             cmd = args.command
             cmd.isRepeatable = False
@@ -85,7 +98,7 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             # Define the inputs.
             inputs = cmd.commandInputs
             # File params.
-            inputs.addStringValueInput('filename', 'Filename', timelapse.filename)
+            inputs.addStringValueInput('foldername', 'Folder Name', timelapse.foldername)
             inputs.addStringValueInput('outputPath', 'Output Path', timelapse.outputPath)
             inputs.addBoolValueInput('saveObj', 'Save .obj Files', True, '', timelapse.saveObj)
             inputs.addIntegerSpinnerCommandInput('width', 'Image Width (px)', 1, max_int, 1, timelapse.width)
@@ -95,20 +108,22 @@ class CommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             inputs.itemById('range').valueOne = timelapse.start
             inputs.itemById('range').valueTwo = timelapse.end
             inputs.addIntegerSpinnerCommandInput('interpolationFrames', 'Frames per Operation', 1, max_int, 1, timelapse.interpolationFrames)
-            inputs.addBoolValueInput('rotate', 'Should Rotate Design', True, '', timelapse.rotate)
+            inputs.addBoolValueInput('doFit', 'Fit Design', True, '', timelapse.doFit)
+            inputs.addBoolValueInput('rotate', 'Rotate Design', True, '', timelapse.rotate)
             inputs.addIntegerSpinnerCommandInput('framesPerRotation', 'Frames per Rotation', 1, max_int, 1, timelapse.framesPerRotation)
             inputs.addIntegerSpinnerCommandInput('finalFrames', 'Num Final Frames', 0, max_int, 1, timelapse.finalFrames)
 
-        except:
+        except Exception:
             if ui:
                 ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
+
 
 class HistoryTimelapse:
     def __init__(self, design):
         dataFile = app.activeDocument.dataFile
 
         # Set initial values.
-        self._filename = dataFile.name
+        self._foldername = dataFile.name
         self._outputPath = os.path.expanduser("~/Desktop/")
         self._saveObj = False
         self._timeline = design.timeline
@@ -121,18 +136,21 @@ class HistoryTimelapse:
         self._framesPerRotation = 500
         self._finalFrames = 0
         self._design = design
+        self.doFit = False
 
     # Properties.
     @property
-    def filename(self):
-        return self._filename
-    @filename.setter
-    def filename(self, value):
-        self._filename = value
+    def foldername(self):
+        return self._foldername
+
+    @foldername.setter
+    def foldername(self, value):
+        self._foldername = value
 
     @property
     def outputPath(self):
         return self._outputPath
+
     @outputPath.setter
     def outputPath(self, value):
         self._outputPath = value
@@ -140,10 +158,11 @@ class HistoryTimelapse:
     @property
     def saveObj(self):
         return self._saveObj
+
     @saveObj.setter
     def saveObj(self, value):
         self._saveObj = value
-    
+
     @property
     def timeline(self):
         return self._timeline
@@ -158,6 +177,7 @@ class HistoryTimelapse:
     @property
     def height(self):
         return self._height
+
     @height.setter
     def height(self, value):
         self._height = value
@@ -165,6 +185,7 @@ class HistoryTimelapse:
     @property
     def start(self):
         return self._start
+
     @start.setter
     def start(self, value):
         self._start = value
@@ -172,6 +193,7 @@ class HistoryTimelapse:
     @property
     def end(self):
         return self._end
+
     @end.setter
     def end(self, value):
         self._end = value
@@ -179,6 +201,7 @@ class HistoryTimelapse:
     @property
     def interpolationFrames(self):
         return self._interpolationFrames
+
     @interpolationFrames.setter
     def interpolationFrames(self, value):
         self._interpolationFrames = value
@@ -186,6 +209,7 @@ class HistoryTimelapse:
     @property
     def rotate(self):
         return self._rotate
+
     @rotate.setter
     def rotate(self, value):
         self._rotate = value
@@ -193,6 +217,7 @@ class HistoryTimelapse:
     @property
     def framesPerRotation(self):
         return self._framesPerRotation
+
     @framesPerRotation.setter
     def framesPerRotation(self, value):
         self._framesPerRotation = value
@@ -200,6 +225,7 @@ class HistoryTimelapse:
     @property
     def finalFrames(self):
         return self._finalFrames
+
     @finalFrames.setter
     def finalFrames(self, value):
         if value < 0:
@@ -226,21 +252,36 @@ class HistoryTimelapse:
         end = self.end
         width = self.width
         height = self.height
-        filename = self.filename
-        outputPath = self.outputPath
+        foldername = self.foldername
+        outputPath = os.path.join(self.outputPath, foldername)
         saveObj = self.saveObj
         timeline = self.timeline
         documents = app.documents
         interpolationFrames = self.interpolationFrames
         framesPerRotation = self.framesPerRotation if self.rotate else 0
         finalFrames = self.finalFrames
+        doFit = self.doFit
+
+        if ui:
+            ui.messageBox('Foldername: {}'.format(foldername))
 
         viewport = app.activeViewport
-        viewport.fit()
+        if doFit:
+            viewport.fit()
         camera = viewport.camera
+
+        up = viewport.frontUpDirection
+        rot = core.Matrix3D.create()
+        rot.setToRotation(
+            math.pi * 2.0 / framesPerRotation,
+            up,
+            core.Point3D.create(0, 0, 0))
 
         num = 0
         startingAngle = None
+
+        ff = open(os.path.join(outputPath, 'log.txt'), 'w')
+        os.makedirs(outputPath, exist_ok=True)
 
         for i in range(start, end):
             try:
@@ -276,20 +317,22 @@ class HistoryTimelapse:
                     # if nextItem == 'Joint':
                     #     continue
                 # If item is sketch, ignore.
-                if classname == 'Sketch':
+                elif classname == 'Sketch':
                     continue
-                if classname == 'ConstructionPlane':
+                elif classname == 'ConstructionPlane':
                     continue
-                if classname == 'ConstructionAxis':
+                elif classname == 'ConstructionAxis':
                     continue
-                if classname == 'ConstructionPoint':
+                elif classname == 'ConstructionPoint':
                     continue
-                if classname == 'ThreadFeature':
+                elif classname == 'ThreadFeature':
                     continue
-                if classname == 'Combine':
+                elif classname == 'Combine':
+                    continue
+                elif classname == 'Canvas':
                     continue
                 # ui.messageBox(classname)
-            except:
+            except Exception:
                 continue
 
             # Set marker position.
@@ -326,8 +369,19 @@ class HistoryTimelapse:
             # if classname == 'OffsetFacesFeature': # TODO: unable to get extent parameter from this operation.
             if classname == 'Move':
                 # TODO: implement this.
+                try:
+                    print(i, 'move:', str(entity.transform.asArray()), file=ff)
+                except Exception as e:
+                    print(i, 'move:', str(e), file=ff)
                 continue
-            if classname == 'RevolveFeature':
+            elif classname == 'MirrorFeature':
+                try:
+                    print(i, 'mirror: bodies', entity.bodies.count, file=ff)
+                    print(i, 'mirror: inputEntities', entity.inputEntities.count, file=ff)
+                except Exception as e:
+                    print(i, 'mirror:', str(e), file=ff)
+                continue
+            elif classname == 'RevolveFeature':
                 if self.isNumericExtent(entity.extentDefinition):
                     param = entity.extentDefinition.angle
                     interpolatedParameters.append(param)
@@ -335,7 +389,7 @@ class HistoryTimelapse:
                     # ui.messageBox(str(param.value / interpolationFrames))
                     stepOffsets.append(0)
             # if classname == 'FilletFeature' or classname == 'ChamferFeature': # TODO: unable to get extent parameter from this operation.
-            if classname == 'Joint':
+            elif classname == 'Joint':
                 # This usually happens after occurrence, fade in the component.
                 # Need to break link first so that opacity changes aren't
                 # applied to all linked components - this is irreversible.
@@ -344,17 +398,17 @@ class HistoryTimelapse:
                     try:
                         if entity.occurrenceOne.isReferencedComponent:
                             entity.occurrenceOne.breakLink()
-                    except:
+                    except Exception:
                         pass
                     alphaComponents.append(entity.occurrenceOne.component)
-            if classname == 'Occurrence':
+            elif classname == 'Occurrence':
                 try:
                     if entity.isReferencedComponent:
                         entity.breakLink()
-                except:
+                except Exception:
                     pass
                 alphaComponents.append(entity.component)
-            if classname == 'RectangularPatternFeature':
+            elif classname == 'RectangularPatternFeature':
                 if entity.quantityOne:
                     param = entity.quantityOne
                     if param.value != 1:
@@ -393,14 +447,19 @@ class HistoryTimelapse:
             for j in range(_interpolationFrames):
                 # Interpolate parameters.
                 for k in range(len(interpolatedParameters)):
-                    value = stepSizes[k] * (j + 1) + stepOffsets[k]
-                    if abs(value) > abs(originalValues[k]):
-                        value = originalValues[k]
-                    # ui.messageBox(str(value))
-                    interpolatedParameters[k].value = value
-                    # Force a recompute (needed for symmetric Revolves for some reason?).
-                    if classname == 'RevolveFeature':
-                        entity.extentDefinition.isSymmetric = entity.extentDefinition.isSymmetric
+                    try:
+                        value = stepSizes[k] * (j + 1) + stepOffsets[k]
+                        if abs(value) > abs(originalValues[k]):
+                            value = originalValues[k]
+                        # ui.messageBox(str(value))
+                        interpolatedParameters[k].value = value
+                        # Force a recompute (needed for symmetric Revolves for some reason?).
+                        if classname == 'RevolveFeature':
+                            entity.extentDefinition.isSymmetric = entity.extentDefinition.isSymmetric
+                    except RuntimeError:
+                        # modifying extents may fail with
+                        # e.g. "No body to cut" error
+                        continue
                 for k in range(len(alphaComponents)):
                     value = originalAlphas[k] * (j + 1) / interpolationFrames
                     if abs(value) > abs(originalAlphas[k]):
@@ -410,21 +469,25 @@ class HistoryTimelapse:
 
                 # Rotate camera around y axis.
                 if framesPerRotation > 0:
-                    angle = math.pi * 2.0 / framesPerRotation
                     camera = viewport.camera
-                    eye = camera.eye
-                    cos = math.cos(angle)
-                    sin = math.sin(angle)
-                    camera.eye = adsk.core.Point3D.create(eye.x * cos + eye.z * sin, eye.y, - eye.x * sin + eye.z * cos)
+                    # camera.isSmoothTransition = False
+                    if doFit:
+                        camera.isFitView = True
+                    pt = camera.eye.copy()
+                    pt.transformBy(rot)
+                    camera.eye = pt
+                    camera.upVector = up
                     # Set camera property to trigger update.
                     viewport.camera = camera
 
                 # Save image.
-                outputFilename = outputPath + 'History_Animation_' + filename + '/' + filename + '_' + str(num)
+                outputFilename = os.path.join(
+                    outputPath,
+                    'frame_{:05d}'.format(num))
                 success = app.activeViewport.saveAsImageFile(outputFilename + '.png', width, height)
                 if not success:
                     ui.messageBox('Failed saving viewport image.')
-                
+
                 # Save obj file if requested
                 if saveObj:
                     success = self.saveObjFile(outputFilename + '.obj')
@@ -439,7 +502,7 @@ class HistoryTimelapse:
                 interpolatedParameters[k].expression = originalExpressions[k]
             for k in range(len(alphaComponents)):
                 alphaComponents[k].opacity = originalAlphas[k]
-    
+
     def saveObjFile(self, file):
         '''Export an .obj file from the root component'''
         try:
@@ -498,37 +561,39 @@ class HistoryTimelapse:
         except Exception as ex:
             return False
 
+
 def run(context):
     global timelapse
     try:
         ui.messageBox('WARNING: This script will make changes to your file (e.g. break links to referenced components).  You may want to run this on a copy of your design.  You can quit Fusion now to stop the script if you are unsure about continuing.')
         product = app.activeProduct
-        design = adsk.fusion.Design.cast(product)
+        design = fusion.Design.cast(product)
         if not design:
             ui.messageBox('Script is not supported in current workspace, please change to MODEL workspace and try again.')
             return
         # Init a timelapse object.
-        if timelapse == None:
+        if timelapse is None:
             timelapse = HistoryTimelapse(design)
 
-        commandDefinitions = ui.commandDefinitions
+        commandDefinitions: core.CommandDefinitions = ui.commandDefinitions
         # Check the command exists or not.
         cmdDef = commandDefinitions.itemById('designhistoryanimation')
         if not cmdDef:
-            cmdDef = commandDefinitions.addButtonDefinition('designhistoryanimation',
-                    'Design History Animation',
-                    'Turn your Fusion360 design history into an animation')
+            cmdDef = commandDefinitions.addButtonDefinition(
+                'designhistoryanimation',
+                'Design History Animation',
+                'Turn your Fusion360 design history into an animation')
 
         onCommandCreated = CommandCreatedHandler()
         cmdDef.commandCreated.add(onCommandCreated)
         # Keep the handler referenced beyond this function.
         handlers.append(onCommandCreated)
-        inputs = adsk.core.NamedValues.create()
+        inputs = core.NamedValues.create()
         cmdDef.execute(inputs)
 
         # Prevent this module from being terminated when the script returns, because we are waiting for event handlers to fire.
         adsk.autoTerminate(False)
 
-    except:
+    except Exception:
         if ui:
             ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
